@@ -1,7 +1,7 @@
-group: io.kestra.plugin.templates
-name: "template"
-title: "Template"
-description: "Plugin template for Kestra"
+group: io.kestra.plugin.zoom
+name: "zoom"
+title: "Zoom"
+description: "Zoom plugin for Kestra"
 body: ""
 videos: []
 createdBy: "Kestra Core Team"

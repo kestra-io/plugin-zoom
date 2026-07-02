@@ -1,10 +1,10 @@
 {
-  "name": "plugin-template",
+  "name": "plugin-zoom",
   "build": {
     "context": ".",
     "dockerfile": "Dockerfile"
   },
-  "workspaceFolder": "/workspaces/plugin-template",
+  "workspaceFolder": "/workspaces/plugin-zoom",
   "forwardPorts": [8080],
   "customizations": {
     "vscode": {
