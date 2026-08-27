@@ -1,16 +1,15 @@
-This is the Kestra plugin template. Use it as a starting point for building a new plugin.
+# How to use the Zoom plugin
 
-## What this template ships
+Send messages to Zoom Team Chat channels or users via the Zoom Chat API.
 
-- `Example` is a sample `RunnableTask` that reverses an input string.
-- `Trigger` is a sample polling trigger that fires an execution at random.
+## Authentication
 
-## How to build your plugin
+Create a Server-to-Server OAuth app in the Zoom App Marketplace to get an
+`accountId`, `clientId`, and `clientSecret`. Store `clientSecret` in a
+[secret](https://kestra.io/docs/concepts/secret).
 
-1. Rename the package `io.kestra.plugin.zoom` to your own, for example `io.kestra.plugin.myservice`.
-2. Update `group`, `name`, `title`, and `description` in `src/main/resources/metadata/index.yaml`.
-3. Replace `src/main/resources/icons/plugin-icon.svg` with your service's icon.
-4. Replace the `Example` and `Trigger` classes with your real tasks and triggers.
-5. Replace this how-to with documentation for your plugin.
+## Tasks
 
-Run `./gradlew lintPluginDocs` before pushing to validate the plugin documentation.
+`SendMessage` sends a message as a step within a flow - set either `channel`
+(to post to a channel) or `toContact` (to message a specific user by email),
+but not both.
