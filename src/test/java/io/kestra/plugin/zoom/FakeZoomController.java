@@ -15,10 +15,16 @@ public class FakeZoomController {
 
     public static String lastAuthorizationHeader;
     public static Map<String, Object> lastMessageBody;
+    public static boolean simulateApiFailure = false;
+    public static boolean simulateMissingAccessToken = false;
+    public static boolean simulateEmptyApiResponse = false;
 
     @Post("/oauth/token")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public HttpResponse<Map<String, Object>> token() {
+        if(simulateMissingAccessToken) {
+            return HttpResponse.ok(Map.of("token_type", "bearer"));
+        }
         return HttpResponse.ok(Map.of("access_token", "test-access-token"));
     }
 
@@ -28,6 +34,15 @@ public class FakeZoomController {
         @Body Map<String, Object> body,
         @Header("Authorization") String authorization
     ) {
+
+        if(simulateApiFailure) {
+            return HttpResponse.badRequest(Map.of("message", "invalid request"));
+        }
+
+        if (simulateEmptyApiResponse) {
+            return HttpResponse.ok();
+        }
+
         lastAuthorizationHeader = authorization;
         lastMessageBody = body;
         return HttpResponse.ok(Map.of());

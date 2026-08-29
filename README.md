@@ -39,14 +39,14 @@
 
 ## Why
 
-- What user problem does this solve? Teams need a concrete starting point for building and validating new Kestra plugins without recreating the same project scaffolding from scratch.
-- Why would a team adopt this plugin in a workflow? It gives plugin authors a ready-made reference repo they can adapt alongside their own build, test, and publishing workflow.
-- What operational/business outcome does it enable? It shortens plugin delivery time, reduces setup mistakes, and makes internal or partner plugin development more repeatable.
+- What user problem does this solve? Teams need to send notifications to Zoom channels or directly to individual users from orchestrated workflows instead of relying on manual messages, ad hoc scripts, or disconnected tools.
+- Why would a team adopt this plugin in a workflow? It keeps Zoom messages in the same Kestra flow as upstream processing, approvals, retries, and downstream systems.
+- What operational/business outcome does it enable? It reduces manual handoffs and fragmented tooling while improving reliability, traceability, and delivery speed for processes that depend on Zoom notifications.
 
 ## What
 
 - Provides plugin components under `io.kestra.plugin.zoom`.
-- Includes classes such as `Example`, `Trigger`.
+- Includes classes such as `SendMessage`, `AbstractZoomConnection`.
 
 ## Documentation
 * Full documentation can be found under: [kestra.io/docs](https://kestra.io/docs)

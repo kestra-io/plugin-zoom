@@ -14,6 +14,9 @@ import lombok.experimental.SuperBuilder;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
 import jakarta.validation.constraints.NotNull;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import io.kestra.core.models.annotations.PluginProperty;
 
 import java.util.Map;
 
@@ -84,6 +87,7 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
         title = "Zoom User ID",
         description = "The Zoom user ID associated with the chat"
     )
+    @PluginProperty(group = "main")
     @NotNull
     private Property<String> userId;
 
@@ -91,27 +95,29 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
         title = "Channel",
         description = "The Zoom channel ID to send the message to"
     )
+    @PluginProperty(group = "main")
     private Property<String> channel;
 
     @Schema(
         title = "Recipient Contact",
         description = "The email address of the user to send the message to"
     )
+    @PluginProperty(group = "main")
     private Property<String> toContact;
 
     @Schema(
         title = "Message",
         description = "The message to send"
     )
+    @PluginProperty(group = "main")
     @NotNull
     private Property<String> message;
 
     @Override
     public VoidOutput run(RunContext runContext) throws Exception{
-        String userId = runContext.
-            render(this.userId).
-            as(String.class).
-            orElseThrow();
+        String userId = runContext.render(this.userId)
+            .as(String.class)
+            .orElseThrow(() -> new IllegalArgumentException("'userId' is required"));
         String channel = runContext.render(this.channel)
             .as(String.class)
             .orElse(null);
@@ -120,7 +126,7 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
             .orElse(null);
         String message = runContext.render(this.message)
             .as(String.class)
-            .orElseThrow();
+            .orElseThrow(() -> new IllegalArgumentException("'message' is required"));
 
         if((channel == null || channel.isBlank()) == (toContact == null || toContact.isBlank())){
             throw new IllegalArgumentException(
@@ -143,7 +149,7 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
         }
 
         String baseUrl = getBaseUrl(runContext);
-        String url = baseUrl + "chat/users/" + userId + "/messages";
+        String url = baseUrl + "chat/users/" +  URLEncoder.encode(userId, StandardCharsets.UTF_8) + "/messages";
 
         HttpRequest request = createAuthenticatedRequest(
             runContext,

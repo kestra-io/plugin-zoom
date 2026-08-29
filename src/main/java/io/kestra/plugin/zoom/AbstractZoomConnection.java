@@ -9,21 +9,23 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import jakarta.validation.constraints.NotNull;
-
-//imports for kestra's HTTP client
 import io.kestra.core.http.client.HttpClient;
 import io.kestra.core.http.client.configurations.HttpConfiguration;
 import io.kestra.core.runners.RunContext;
-
-//imports for OAuth
 import io.kestra.core.http.HttpRequest;
 import io.kestra.core.http.HttpResponse;
-
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import io.kestra.core.storages.kv.KVStore;
+import io.kestra.core.storages.kv.KVValueAndMetadata;
+import io.kestra.core.storages.kv.KVMetadata;
+import java.time.Duration;
+import java.util.Optional;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.kestra.core.models.annotations.PluginProperty;
 
 @SuperBuilder
 @ToString
@@ -38,7 +40,7 @@ public abstract class AbstractZoomConnection extends Task{
         description = "Account ID obtained from Zoom App Marketplace"
     )
     @NotNull
-    @io.kestra.core.models.annotations.PluginProperty(group = "connection")
+    @PluginProperty(group = "connection")
     private Property<String> accountId;
 
     @Schema(
@@ -46,7 +48,7 @@ public abstract class AbstractZoomConnection extends Task{
         description = "Client ID obtained from Zoom App Marketplace"
     )
     @NotNull
-    @io.kestra.core.models.annotations.PluginProperty(group = "connection")
+    @PluginProperty(group = "connection")
     private Property<String> clientId;
 
     @Schema(
@@ -54,7 +56,7 @@ public abstract class AbstractZoomConnection extends Task{
         description = "Client Secret obtained from Zoom App Marketplace"
     )
     @NotNull
-    @io.kestra.core.models.annotations.PluginProperty(group = "connection" , secret = true)
+    @PluginProperty(group = "connection" , secret = true)
     @ToString.Exclude
     private Property<String> clientSecret;
 
@@ -62,15 +64,16 @@ public abstract class AbstractZoomConnection extends Task{
         title =  "Custom Base URL",
         description = "Override Zoom API base URL. Defaults to https://api.zoom.us/v2/"
     )
-    @io.kestra.core.models.annotations.PluginProperty(group = "connection")
+    @PluginProperty(group = "connection")
     private Property<String> baseUrl;
 
-    private record OAuthTokenResponse(String access_token) {}
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record OAuthTokenResponse(String access_token, Integer expires_in) {}
 
     protected HttpClient createHttpClient(RunContext runContext) throws Exception{
-        return HttpClient.builder().
-            runContext(runContext).
-            configuration(HttpConfiguration.builder().build())
+        return HttpClient.builder()
+            .runContext(runContext)
+            .configuration(HttpConfiguration.builder().build())
             .build();
     }
 
@@ -89,35 +92,50 @@ public abstract class AbstractZoomConnection extends Task{
     }
 
     protected String getAccessToken(RunContext runContext) throws Exception {
-        String accountId = runContext.render(this.accountId).as(String.class).orElseThrow();
-        String clientId = runContext.render(this.clientId).as(String.class).orElseThrow();
-        String clientSecret = runContext.render(this.clientSecret).as(String.class).orElseThrow();
+        String accountId = runContext.render(this.accountId).as(String.class).orElseThrow(() -> new IllegalArgumentException("Zoom 'accountId' is required"));
+        String clientId = runContext.render(this.clientId).as(String.class).orElseThrow(() -> new IllegalArgumentException("Zoom 'clientId' is required"));
+        String clientSecret = runContext.render(this.clientSecret).as(String.class).orElseThrow(() -> new IllegalArgumentException("Zoom 'clientSecret' is required"));
 
-        String credentials = Base64.getEncoder()
-            .encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
+        KVStore kv = runContext.namespaceKv(runContext.flowInfo().namespace());
+        String cacheKey = "zoom-token" + Integer.toHexString((accountId + ":" + clientId).hashCode());
+
+        Optional<io.kestra.core.storages.kv.KVValue> cached = kv.getValue(cacheKey);
+        if(cached.isPresent()) {
+            return cached.get().value().toString();
+        }
+
+        String credentials = Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
 
         HttpRequest request = HttpRequest.of(
             URI.create(getOAuthUrl()),
             "POST",
             HttpRequest.UrlEncodedRequestBody.of(
-                Map.of(
-                    "grant_type", "account_credentials",
-                    "account_id", accountId
-                )
+                Map.of("grant_type", "account_credentials", "account_id", accountId)
             ),
-            Map.of(
-                "Authorization", List.of("Basic " + credentials)
-            )
+            Map.of("Authorization", List.of("Basic " + credentials))
         );
 
         try (HttpClient httpClient = createHttpClient(runContext)) {
-            HttpResponse<OAuthTokenResponse> response = httpClient.request(request, OAuthTokenResponse.class);
+            HttpResponse<OAuthTokenResponse> response;
+
+            try{
+                response = httpClient.request(request, OAuthTokenResponse.class);
+            } catch (Exception e){
+                throw new IllegalStateException( "Failed to authenticate with Zoom OAuth API: " + e.getMessage(),
+                    e);
+            }
 
             if (response.getBody() == null || response.getBody().access_token() == null) {
                 throw new IllegalStateException("Zoom OAuth response did not contain an access token");
             }
 
-            return response.getBody().access_token();
+            String token = response.getBody().access_token();
+            int expiresIn = Optional.ofNullable(response.getBody().expires_in()).orElse(3600);
+            long safeTtlSeconds = Math.max(expiresIn - 60, 30);
+
+            kv.put(cacheKey, new KVValueAndMetadata(new KVMetadata(null, Duration.ofSeconds(safeTtlSeconds)), token),true);
+
+            return token;
         }
     }
 
@@ -145,7 +163,11 @@ public abstract class AbstractZoomConnection extends Task{
         Class<T> responseType
     ) throws Exception {
         try(HttpClient httpClient = createHttpClient(runContext)){
-            return httpClient.request(request,responseType);
+            try {
+                return httpClient.request(request, responseType);
+            } catch (Exception e) {
+                throw new IllegalStateException("Empty or invalid response from Zoom API: " + e.getMessage(), e);
+            }
         }
     }
 }

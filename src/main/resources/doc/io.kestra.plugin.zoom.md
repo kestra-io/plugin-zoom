@@ -10,6 +10,8 @@ Create a Server-to-Server OAuth app in the Zoom App Marketplace to get an
 
 ## Tasks
 
-`SendMessage` sends a message as a step within a flow - set either `channel`
+`SendMessage` sends a message as a step within a flow. The required `userId`
+identifies the Zoom user associated with the chat. Set either `channel`
 (to post to a channel) or `toContact` (to message a specific user by email),
-but not both.
+but not both. The optional `baseUrl` property can be used to override the
+default Zoom API base URL.
