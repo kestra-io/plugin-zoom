@@ -2,7 +2,7 @@ group: io.kestra.plugin.zoom
 name: "zoom"
 title: "Zoom"
 description: "Zoom plugin for Kestra"
-body: ""
+body: "Send notifications and messages to Zoom Team Chat channels or users directly from your Kestra workflows."
 videos: []
 createdBy: "Kestra Core Team"
 managedBy: "Kestra Core Team"
