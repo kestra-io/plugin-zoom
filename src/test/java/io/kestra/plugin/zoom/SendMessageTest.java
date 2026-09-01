@@ -15,6 +15,7 @@ import java.util.Map;
 import io.kestra.core.models.flows.Flow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -95,8 +96,9 @@ class SendMessageTest {
             .oauthTokenUrl(baseUrl + "oauth/token")
             .build();
 
-        task.run(runContext);
+        var output = task.run(runContext);
 
+        assertThat(output, nullValue());
         assertThat(FakeZoomController.lastAuthorizationHeader, equalTo("Bearer test-access-token"));
         assertThat(FakeZoomController.lastMessageBody.get("to_channel"), equalTo("test-channel"));
         assertThat(FakeZoomController.lastMessageBody.get("message"), equalTo("Hello"));
