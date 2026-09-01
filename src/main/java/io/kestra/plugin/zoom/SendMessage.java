@@ -164,6 +164,6 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
             Map.class
         );
 
-        return new VoidOutput();
+        return null;
     }
 }
