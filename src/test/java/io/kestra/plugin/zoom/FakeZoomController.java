@@ -18,6 +18,7 @@ public class FakeZoomController {
     public static boolean simulateApiFailure = false;
     public static boolean simulateMissingAccessToken = false;
     public static boolean simulateEmptyApiResponse = false;
+    public static boolean returnEmptyMessageId = false;
 
     @Post("/oauth/token")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -45,6 +46,9 @@ public class FakeZoomController {
 
         lastAuthorizationHeader = authorization;
         lastMessageBody = body;
-        return HttpResponse.ok(Map.of());
+        if (returnEmptyMessageId) {
+            return HttpResponse.ok(Map.of());
+        }
+        return HttpResponse.created(Map.of("id", "test-message-id"));
     }
 }

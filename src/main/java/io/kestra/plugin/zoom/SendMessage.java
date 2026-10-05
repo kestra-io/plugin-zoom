@@ -1,11 +1,12 @@
 package io.kestra.plugin.zoom;
 
 import io.kestra.core.http.HttpRequest;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
-import io.kestra.core.models.tasks.VoidOutput;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -57,7 +58,7 @@ import java.util.Map;
                 """
         ),
         @Example(
-            title = "Notify a Zoom channel when a flow completes successfully.",
+            title = "Notify a Zoom channel when a flow completes successfully and store the message ID in the KV store.",
             full = true,
             code = """
                 id: notify_zoom_on_success
@@ -78,11 +79,16 @@ import java.util.Map;
                     userId: "{{ secret('ZOOM_BOT_USER_ID') }}"
                     channel: "{{ secret('ZOOM_CHANNEL_ID') }}"
                     message: "Flow {{ flow.namespace }}.{{ flow.id }} completed successfully."
+
+                  - id: store_message_id
+                    type: io.kestra.plugin.core.kv.Set
+                    key: last_zoom_message_id
+                    value: "{{ outputs.send_notification.messageId }}"
                 """
         )
     }
 )
-public class SendMessage extends AbstractZoomConnection implements RunnableTask<VoidOutput> {
+public class SendMessage extends AbstractZoomConnection implements RunnableTask<SendMessage.Output> {
     @Schema(
         title = "Zoom User ID",
         description = "The Zoom user ID associated with the chat"
@@ -114,7 +120,7 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
     private Property<String> message;
 
     @Override
-    public VoidOutput run(RunContext runContext) throws Exception{
+    public Output run(RunContext runContext) throws Exception {
         String userId = runContext.render(this.userId)
             .as(String.class)
             .orElseThrow(() -> new IllegalArgumentException("'userId' is required"));
@@ -158,12 +164,33 @@ public class SendMessage extends AbstractZoomConnection implements RunnableTask<
             HttpRequest.JsonRequestBody.of(body)
         );
 
-        execute(
+        var response = execute(
             runContext,
             request,
-            Map.class
+            SendMessageResponse.class
         );
 
-        return null;
+        var responseBody = response.getBody();
+        var messageId = responseBody != null ? responseBody.id() : null;
+        if (messageId == null) {
+            runContext.logger().warn("Zoom accepted the message but its response did not contain a message id; 'messageId' output will be empty");
+        }
+
+        return Output.builder()
+            .messageId(messageId)
+            .build();
     }
+
+    @Builder
+    @Getter
+    public static class Output implements io.kestra.core.models.tasks.Output {
+        @Schema(
+            title = "The ID of the sent message",
+            description = "UUID of the Zoom Team Chat message, as returned by the Zoom API. Can be used by downstream tasks to reply to, update, or delete the message."
+        )
+        private String messageId;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record SendMessageResponse(String id) {}
 }
